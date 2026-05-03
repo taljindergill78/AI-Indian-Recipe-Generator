@@ -176,5 +176,11 @@ cython_debug/
 .pypirc
 /artifacts
 
+# Data files — raw data lives on HuggingFace Hub, processed data is regeneratable
+data/raw/*.csv
+data/raw/*.json
+data/raw/*.parquet
+data/processed/
+
 # Personal learning docs — not for public repo
 docs/

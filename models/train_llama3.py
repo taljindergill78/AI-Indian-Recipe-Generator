@@ -1,8 +1,12 @@
 import os
 import re
 import gc
+import sys
 import torch
 import pandas as pd
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from models.base_utils.common_utils import read_params
 from datasets import Dataset
 from tqdm.auto import tqdm
 from transformers import (
@@ -202,8 +206,9 @@ def main():
     torch.backends.cudnn.benchmark = False
     torch.backends.cuda.matmul.allow_tf32 = False
     
-    dataset_path = 'artifacts/Cleaned_Indian_Food_Dataset.csv'
-    output_dir = 'recipe_model/'
+    config = read_params('params.yaml')
+    dataset_path = config['data_dir']['indian_data']
+    output_dir = config['model_output']['output_dir']
 
     fine_tuner = RecipeFineTuner(
         dataset_path=dataset_path,

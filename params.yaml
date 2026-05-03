@@ -1,19 +1,24 @@
 data_dir:
-  artifacts: artifacts
-  indian_data: artifacts/Cleaned_Indian_Food_Dataset.csv
-  metrics: artifacts/metrics.csv
+  raw: data/raw
+  processed: data/processed
+  indian_data: data/raw/indian_recipe_dataset.csv
+  metrics: data/processed/metrics.csv
+
 model_names:
-  llama2: llama2
-  llama3: llama3.2
-  mistral: mistral
+  llama3_3b: meta-llama/Llama-3.2-3B-Instruct
+  llama3_1b: meta-llama/Llama-3.2-1B-Instruct
+  phi3_mini: microsoft/Phi-3-mini-4k-instruct
+
 data_path:
-  llama2_base: artifacts/llama2_base_metrics.json
-  llama2_base_prompts: artifacts/llama2_base_prompts.json
-  llama3_base: artifacts/llama3_base_metrics.json
-  llama3_base_prompts: artifacts/llama3_base_prompts.json
-  mistral_base: artifacts/mistral_base_metrics.json
-  mistral_base_prompts: artifacts/mistral_base_prompts.json
+  llama3_3b_metrics: data/processed/llama3_3b_base_metrics.json
+  llama3_3b_prompts: data/processed/llama3_3b_base_prompts.json
+  llama3_1b_metrics: data/processed/llama3_1b_base_metrics.json
+  llama3_1b_prompts: data/processed/llama3_1b_base_prompts.json
+  phi3_mini_metrics: data/processed/phi3_mini_base_metrics.json
+  phi3_mini_prompts: data/processed/phi3_mini_base_prompts.json
+
 test_size:
   test_size: 500
-llama2_model_dir:
-  recipe_model: "pmodels/llama2_trained_model"
+
+model_output:
+  output_dir: models/trained/
