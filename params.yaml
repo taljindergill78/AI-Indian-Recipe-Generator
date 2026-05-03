@@ -4,10 +4,13 @@ data_dir:
   metrics: artifacts/metrics.csv
 model_names:
   llama2: llama2
+  llama3: llama3.2
   mistral: mistral
 data_path:
   llama2_base: artifacts/llama2_base_metrics.json
   llama2_base_prompts: artifacts/llama2_base_prompts.json
+  llama3_base: artifacts/llama3_base_metrics.json
+  llama3_base_prompts: artifacts/llama3_base_prompts.json
   mistral_base: artifacts/mistral_base_metrics.json
   mistral_base_prompts: artifacts/mistral_base_prompts.json
 test_size:

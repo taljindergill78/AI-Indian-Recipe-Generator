@@ -1,7 +1,7 @@
 import yaml
 import re
 import json
-from nltk.translate.bleu_score import sentence_bleu
+from nltk.translate.bleu_score import corpus_bleu
 
 
 
@@ -30,13 +30,12 @@ def write_json(file_path,data):
     with open(file_path, "w") as f:
         json.dump(data, f, indent=4)
 
-def calculate_bleu(reference_text,candidate_text):
-    reference_tokens = reference_text.split('/n')
-    candidate_text='\n '.join(candidate_text)
-    candidate_tokens = candidate_text
-    weights = (0.5, 0.5)
-    bleu_score = sentence_bleu(reference_tokens, candidate_tokens,weights=weights)
-    return bleu_score
+def calculate_bleu(reference_texts: list, candidate_texts: list) -> float:
+    # corpus_bleu expects: list_of_references = [[[tok, tok, ...]], ...]
+    # one inner list per example, each containing one reference (also a list of tokens)
+    list_of_references = [[ref.split()] for ref in reference_texts]
+    hypotheses = [cand.split() for cand in candidate_texts]
+    return corpus_bleu(list_of_references, hypotheses)
 
 def train_test_split(df,test_size:int=100):
     if test_size > len(df):
