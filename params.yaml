@@ -2,12 +2,25 @@ data_dir:
   raw: data/raw
   processed: data/processed
   indian_data: data/raw/indian_recipe_dataset.csv
+  nf_analyst_data: data/raw/nf_analyst_recipes_raw.csv
+  anupam_filtered: data/processed/anupam_filtered.csv
+  nf_analyst_filtered: data/processed/nf_analyst_filtered.csv
+  merged_cleaned: data/processed/merged_cleaned.csv
+  prompt_response_pairs: data/processed/prompt_response_pairs.csv
+  train: data/processed/train.csv
+  val: data/processed/val.csv
+  test: data/processed/test.csv
   metrics: data/processed/metrics.csv
 
-model_names:
+model_candidates:
   llama3_3b: meta-llama/Llama-3.2-3B-Instruct
   llama3_1b: meta-llama/Llama-3.2-1B-Instruct
   phi3_mini: microsoft/Phi-3-mini-4k-instruct
+
+prompts:
+  system_prompt: >
+    You are an expert Indian chef. Generate authentic Indian recipes with detailed
+    ingredients and clear step-by-step cooking instructions.
 
 data_path:
   llama3_3b_metrics: data/processed/llama3_3b_base_metrics.json
@@ -17,8 +30,9 @@ data_path:
   phi3_mini_metrics: data/processed/phi3_mini_base_metrics.json
   phi3_mini_prompts: data/processed/phi3_mini_base_prompts.json
 
-test_size:
-  test_size: 500
+split_sizes:
+  test: 500
+  val: 250
 
 model_output:
   output_dir: models/trained/

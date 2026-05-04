@@ -1,99 +1,84 @@
-# AI-Powered-Indian-Recipe-Generation
+# AI-Powered Indian Recipe Generator
 
 ## Project Overview
 
-This project explores the use of Large Language Models (LLMs) for AI-driven recipe generation based on input ingredients. The core objective is to fine-tune LLMs to generate culturally authentic and contextually relevant Indian recipes. Fine-tuning is performed using Quantized Low-Rank Adaptation (QLoRA) to optimize model performance efficiently. The models are evaluated using precision, recall, and BLEU score to assess their ability to generate high-quality recipes.
+Fine-tune a large language model to generate culturally authentic Indian recipes from a list
+of input ingredients. The user provides ingredients; the model generates a complete recipe
+(name, instructions, cook time). A multi-turn adaptation layer then lets the user refine the
+result — make it vegan, spicier, or quicker — using the same fine-tuned model in a second call.
 
-## Data Used
+Fine-tuning uses **QLoRA (Quantized Low-Rank Adaptation)** with 4-bit NF4 quantization,
+which makes it possible to fine-tune a 3B parameter model on a free-tier Kaggle GPU (P100, 16GB VRAM).
 
-The dataset consists of **5,900 different Indian recipes** with structured metadata, including:
+## Dataset
 
-- **Ingredients**
-- **Instructions**
+- **Source**: [archanaskitchen.com](https://www.archanaskitchen.com/) via HuggingFace
+  ([Anupam007/indian-recipe-dataset](https://huggingface.co/datasets/Anupam007/indian-recipe-dataset))
+- **Total recipes**: 5,938
+- **Indian recipes used for training** (after filtering by cuisine): ~3,792
+- **Key columns**: `TranslatedRecipeName`, `TranslatedIngredients`, `Cleaned-Ingredients`,
+  `TranslatedInstructions`, `TotalTimeInMins`, `Cuisine`, `image-url`
 
-Data preprocessing included tokenization, standardization of ingredient names, and removal of duplicates to enhance model training quality.
+> **Data setup**: After cloning, run `uv run python scripts/download_data.py` to download
+> the dataset into `data/raw/`.
 
-## Prompts Used
+## Models Evaluated
 
-Three different prompt structures were tested for recipe generation, with Prompt 1 yielding the best results in terms of precision, recall, and BLEU score.
+Three candidate models are evaluated at baseline (no fine-tuning) before selecting one to fine-tune:
 
-## Models Used
+| Model | Parameters | Why Considered |
+|---|---|---|
+| `meta-llama/Llama-3.2-3B-Instruct` | 3B | Primary candidate — strong instruction following, fits on P100 with 4-bit quant |
+| `meta-llama/Llama-3.2-1B-Instruct` | 1B | Fastest to train — useful if 3B shows no improvement from fine-tuning |
+| `microsoft/Phi-3-mini-4k-instruct` | 3.8B | Competitive quality at small size, strong baseline performance |
 
-Three state-of-the-art LLMs were selected for evaluation:
+## Fine-Tuning Setup
 
-- **LLAMA2**
-- **LLAMA3.2**
-- **Mistral-7B**
+- **Method**: QLoRA — LoRA adapters (rank 16) injected into Q/K/V/O attention projections
+- **Quantization**: 4-bit NF4 (via `bitsandbytes`) — reduces GPU memory from ~12GB to ~5GB
+- **Trainable parameters**: ~3M out of 3B (~0.1%)
+- **Compute**: Kaggle Notebooks (NVIDIA P100, 16GB VRAM, free tier)
+- **Tracking**: MLflow (hyperparameters + BLEU/ROUGE per epoch)
 
-## Fine-Tuning Method Used
+## Evaluation Metrics
 
-Fine-tuning was performed using **QLoRA (Quantized Low-Rank Adaptation)** to optimize the models with minimal computational overhead. This involved:
+| Metric | What It Measures |
+|---|---|
+| BLEU-4 | N-gram overlap between generated and reference instructions |
+| ROUGE-L | Longest common subsequence — captures sentence-level fluency |
+| Ingredient F1 | Precision + recall on ingredient names (harmonic mean) |
+| BERTScore | Semantic similarity using contextual embeddings |
 
-- Injecting low-rank matrices into model layers
-- Using 8-bit quantization for efficiency
-- Training with adaptive learning rates
+## Results
 
-## Metrics Used
+> ⚠️ **Metrics pending re-evaluation.** A bug was found and fixed in the BLEU implementation
+> (the function was splitting on `'/n'` instead of `'\n'`, and using `sentence_bleu` instead
+> of `corpus_bleu`). All previously reported numbers are invalid. Corrected baseline and
+> fine-tuned metrics will be added here after Phase 2 evaluation is complete.
 
-Three key metrics were used to evaluate model performance:
+## Tech Stack
 
+| Area | Tools |
+|---|---|
+| Fine-tuning | PyTorch, HuggingFace Transformers, PEFT, bitsandbytes, TRL |
+| Data | HuggingFace Datasets, Pandas |
+| Evaluation | NLTK (corpus_bleu), rouge-score, bert-score |
+| Experiment tracking | MLflow |
+| Frontend | Gradio Blocks (deployed on HuggingFace Spaces) |
+| API | FastAPI + Uvicorn |
+| Package management | UV (pyproject.toml + uv.lock) |
 
-- **Precision**: Measures how accurately the generated recipe uses relevant ingredients.
+## Project Setup
 
-  **Formula:**
-  ```markdown
-  Precision = (Relevant ingredients used) / (Total ingredients used in the generated recipe)
+```bash
+# 1. Clone and install dependencies
+git clone <repo-url>
+cd AI-Indian-Recipe-Generator
+uv sync
 
-- **Recall**: Evaluates the completeness of the generated recipe in incorporating input ingredients.
+# 2. Download the dataset
+uv run python scripts/download_data.py
 
-  **Formula:**
-  ```markdown
-  Recall = (Relevant ingredients used) / (Total input ingredients provided)
-
-- **BLEU Score**: Assesses the linguistic similarity between generated recipes and human-written recipes using n-gram overlap.
-
-  **Formula:**
-  ```markdown
-  BLEU = BP * exp(sum(w_n * log P_n))
-  Where:
-
-     1. BP is the brevity penalty
-     2. P_n is the modified precision for n-grams
-
-## Base Model Performance
-
-The baseline results before fine-tuning are as follows:
-
-| Model        | Prompt | Precision | Recall | BLEU Score |
-|--------------|--------|-----------|--------|------------|
-| LLAMA2       | 1      | 0.88      | 0.85   | 0.23       |
-| LLAMA3.2     | 1      | 0.93      | 0.94   | 0.34       |
-| Mistral-7B   | 1      | 0.90      | 0.87   | 0.36       |
-
-## Fine-Tuned Model Performance
-
-Fine-tuned results for LLAMA3.2 using QLoRA are as follows:
-
-| Prompt | Precision | Recall | BLEU Score |
-|--------|-----------|--------|------------|
-| 1      | 0.96      | 0.96   | 0.52       |
-| 2      | 0.95      | 0.94   | 0.43       |
-| 3      | 0.95      | 0.95   | 0.47       |
-
-### Key Observations:
-- Fine-tuning significantly improved the model’s ability to generate accurate and culturally authentic recipes.
-- Prompt 1 yielded the best overall performance in terms of precision, recall, and BLEU score.
-
-## Conclusion
-
-This project successfully demonstrated the effectiveness of fine-tuning LLMs for recipe generation tasks. The results validate the use of QLoRA as a resource-efficient method to enhance model performance. Future work will focus on:
-
-- Expanding the dataset to improve diversity and accuracy.
-- Refining prompt engineering techniques.
-- Integrating user feedback to continuously optimize performance.
-
-## Future Work
-
-- **Expand Dataset**: Increase the size and diversity of the dataset for broader recipe generation.
-- **Refine Prompt Engineering**: Experiment with different prompt structures for further improvements in model performance.
-- **User Feedback**: Incorporate feedback from end-users to fine-tune the model further and address real-world needs.
+# 3. Run tests
+uv run pytest tests/
+```
