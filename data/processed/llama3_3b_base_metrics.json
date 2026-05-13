@@ -1,0 +1,16 @@
+{
+  "model_id": "meta-llama/Llama-3.2-3B-Instruct",
+  "n_samples": 500,
+  "ingredient_f1_mean": 0.0308,
+  "ingredient_f1_ci_lower": 0.0271,
+  "ingredient_f1_ci_upper": 0.035,
+  "rouge_l_mean": 0.1954,
+  "rouge_l_ci_lower": 0.1908,
+  "rouge_l_ci_upper": 0.1999,
+  "bleu_corpus": 0.0195,
+  "bertscore_mean_f1": 0.8455,
+  "bertscore_mean_precision": 0.8529,
+  "bertscore_mean_recall": 0.8385,
+  "bertscore_ci_lower": 0.8438,
+  "bertscore_ci_upper": 0.847
+}

@@ -210,6 +210,10 @@ def compute_bertscore(
     if not generated_list or not reference_list:
         return {"per_sample_f1": [], "mean_f1": 0.0, "mean_precision": 0.0, "mean_recall": 0.0}
 
+    # bert_score crashes on empty strings via sent_encode() — replace with a placeholder
+    generated_list = [s if s and s.strip() else "[empty]" for s in generated_list]
+    reference_list  = [s if s and s.strip() else "[empty]" for s in reference_list]
+
     P, R, F1 = bert_score_fn(
         generated_list,
         reference_list,

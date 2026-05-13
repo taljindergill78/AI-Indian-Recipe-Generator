@@ -1,0 +1,16 @@
+{
+  "model_id": "microsoft/Phi-3-mini-4k-instruct",
+  "n_samples": 500,
+  "ingredient_f1_mean": 0.0188,
+  "ingredient_f1_ci_lower": 0.0156,
+  "ingredient_f1_ci_upper": 0.0223,
+  "rouge_l_mean": 0.0984,
+  "rouge_l_ci_lower": 0.0882,
+  "rouge_l_ci_upper": 0.1096,
+  "bleu_corpus": 0.0048,
+  "bertscore_mean_f1": 0.8018,
+  "bertscore_mean_precision": 0.8248,
+  "bertscore_mean_recall": 0.7805,
+  "bertscore_ci_lower": 0.7978,
+  "bertscore_ci_upper": 0.8061
+}

@@ -102,9 +102,14 @@ def _parse_structured(text: str) -> ParsedRecipe:
             current_section = "instructions"
             continue
         elif is_bold_header and line.strip().endswith("**"):
-            # Any other bold header resets the section
-            current_section = None
-            continue
+            # Bold sub-headers inside instructions (e.g. "**Step 1: ...**") must stay
+            # in the instructions section — they are part of the content, not new sections.
+            # Only reset when collecting ingredients (to stop at a non-instructions header).
+            if current_section == "ingredients":
+                current_section = None
+            if current_section != "instructions":
+                continue
+            # In instructions: fall through so the sub-header line is collected as content
 
         if current_section == "ingredients" and line.strip():
             ingr_lines.append(line.strip())
@@ -122,14 +127,16 @@ def _parse_regex_fallback(text: str) -> ParsedRecipe:
     Tier 2: regex-based fallback for models that use non-bold headers
     (e.g. '### Ingredients', 'Ingredients:', '## Instructions').
     """
-    # Match an ingredient section header (bold, hash, or plain) followed by its content
+    # Match an ingredient section header (bold, hash, or plain) followed by its content.
+    # [*_]* handles any combination of bold markers before and after the word and colon
+    # e.g. "**Ingredients:**", "### Ingredients", "Ingredients:"
     ingr_pattern = re.compile(
-        r"(?:#{1,3}\s*|[*_]{1,2})?ingredients?(?:[*_]{1,2})?:?\s*\n(.*?)"
-        r"(?=\n\s*(?:#{1,3}\s*|[*_]{1,2})?instructions?|\Z)",
+        r"(?:#{1,3}\s*)?[*_]*ingredients?[*_]*:?[*_]*\s*\n(.*?)"
+        r"(?=\n\s*(?:#{1,3}\s*)?[*_]*instructions?|\Z)",
         re.IGNORECASE | re.DOTALL,
     )
     instr_pattern = re.compile(
-        r"(?:#{1,3}\s*|[*_]{1,2})?instructions?(?:[*_]{1,2})?:?\s*\n(.*?)$",
+        r"(?:#{1,3}\s*)?[*_]*instructions?[*_]*:?[*_]*\s*\n(.*?)$",
         re.IGNORECASE | re.DOTALL,
     )
 

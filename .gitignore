@@ -176,11 +176,31 @@ cython_debug/
 .pypirc
 /artifacts
 
-# Data files — raw data lives on HuggingFace Hub, processed data is regeneratable
+# Raw data — lives on HuggingFace Hub
 data/raw/*.csv
 data/raw/*.json
 data/raw/*.parquet
-data/processed/
+
+# Intermediate pipeline outputs — regeneratable from the data pipeline scripts
+data/processed/merged_cleaned.csv
+data/processed/anupam_filtered.csv
+data/processed/nf_analyst_filtered.csv
+data/processed/prompt_response_pairs.csv
+data/processed/train.csv
+data/processed/val.csv
+
+# Rowcheckpoint files — redundant copies of *_base_prompts.json (safety net only)
+data/processed/*_rowcheckpoint.json
+
+# Committed to GitHub (key evaluation results + test set for reproducibility):
+#   candidate_baseline_comparison.csv  — model selection decision table
+#   llama3_3b_base_metrics.json        — 3B aggregate metrics
+#   llama3_1b_base_metrics.json        — 1B aggregate metrics
+#   phi3_mini_base_metrics.json        — Phi3 aggregate metrics
+#   llama3_3b_base_prompts.json        — 3B per-row results (3.4MB)
+#   llama3_1b_base_prompts.json        — 1B per-row results (3.2MB)
+#   phi3_mini_base_prompts.json        — Phi3 per-row results (3.1MB)
+#   test.csv                           — 500-row test split for reproducibility
 
 # Personal learning docs — not for public repo
 docs/

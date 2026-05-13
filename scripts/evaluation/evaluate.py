@@ -85,7 +85,7 @@ def load_model_and_tokenizer(model_id: str, load_in_4bit: bool):
         model = AutoModelForCausalLM.from_pretrained(
             model_id,
             quantization_config=bnb_config,
-            device_map="auto",
+            device_map="cuda:0",  # force single GPU; "auto" splits across GPUs causing overhead
         )
     else:
         print(f"Loading model in float32 (CPU): {model_id}")
@@ -394,6 +394,13 @@ def main():
     model, tokenizer = load_model_and_tokenizer(model_id, CONFIG["load_in_4bit"])
 
     row_results = run_row_loop(model, tokenizer, test_df, CONFIG)
+
+    # Checkpoint row results immediately — if aggregation fails, generation work is not lost
+    checkpoint_path = outputs_path.replace(".json", "_rowcheckpoint.json")
+    Path(checkpoint_path).parent.mkdir(parents=True, exist_ok=True)
+    with open(checkpoint_path, "w") as f:
+        json.dump(row_results, f)
+    print(f"Row results checkpointed: {checkpoint_path}")
 
     aggregate = compute_aggregates(row_results, model_id)
 
