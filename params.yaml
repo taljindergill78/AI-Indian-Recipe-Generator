@@ -36,3 +36,5 @@ split_sizes:
 
 model_output:
   output_dir: models/trained/
+  # On Kaggle: override output_dir by setting env var MODEL_OUTPUT_DIR before running
+  # e.g. os.environ["MODEL_OUTPUT_DIR"] = "/kaggle/working/trained/"
