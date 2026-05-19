@@ -2,22 +2,26 @@
 QLoRA Fine-Tuning: LLaMA 3.2-3B-Instruct on Indian Recipe Dataset
 
 Technique: QLoRA = 4-bit NF4 quantization (base model frozen) + LoRA adapters (trainable).
-Only ~10M of 3B parameters are trained. Runs on a single Kaggle T4 GPU (16GB VRAM).
+Only ~10M of 3B parameters are trained. Designed for A100 40GB (RunPod / any Ampere+ GPU).
 
 Key design decisions (see docs/phases/phase3_fine_tuning/step1_qlora_concepts.md):
-  - SFTTrainer with assistant_only_loss=True: loss computed on assistant response only
-  - Conversational dataset format (messages column): trl 1.x native format
-  - 7 LoRA target modules (all attention + MLP) for better vocabulary adaptation
-  - paged_adamw_8bit: Adam optimizer states paged to CPU — saves ~0.5GB VRAM
-  - device_map="cuda:0": force single GPU — "auto" splits across GPUs causing overhead
+  - bf16=True: LLaMA 3.2 is natively BF16; A100 has native BF16 Tensor Cores (312 TFLOPS)
+  - gradient_checkpointing=False: A100 40GB has room for full activations — no compute trade-off needed
+  - adamw_torch: no paging overhead needed on 40GB; cleaner than paged_adamw_8bit
+  - per_device_train_batch_size=4: A100 can fit 2× the batch T4 could
+  - gradient_accumulation_steps=4: effective batch still 16 (4×4), fewer accum steps = faster
+  - _AssistantOnlyCollator: loss on assistant response only (replaces assistant_only_loss=True
+    which requires {% generation %} markers LLaMA 3.2 lacks)
+  - CUDA_VISIBLE_DEVICES=0: force single GPU even if pod has multiple — prevents DataParallel
+    which is incompatible with 4-bit bitsandbytes models
 
-Library versions used:  trl>=1.0  transformers>=4.45  peft>=0.13  bitsandbytes>=0.46
+Library versions:  trl>=1.0  transformers>=4.45  peft>=0.13  bitsandbytes>=0.46
 
-Run from project root on Kaggle:
+Run from project root:
     python models/train_llama3.py
 
-Dry-run (no GPU — syntax + config check only):
-    uv run python models/train_llama3.py --dry-run
+Dry-run (syntax + config check, no GPU):
+    python models/train_llama3.py --dry-run
 """
 
 import argparse
@@ -57,29 +61,26 @@ LORA_CONFIG = dict(
 
 TRAIN_CONFIG = dict(
     num_train_epochs=3,
-    per_device_train_batch_size=2,
-    per_device_eval_batch_size=2,
-    gradient_accumulation_steps=8,       # effective batch size = 16
+    per_device_train_batch_size=4,       # A100 40GB can fit 2× what T4 could
+    per_device_eval_batch_size=4,
+    gradient_accumulation_steps=4,       # effective batch size = 16 (4×4)
     learning_rate=2e-4,
     lr_scheduler_type="cosine",
     warmup_ratio=0.05,
     weight_decay=0.01,
-    max_seq_length=1024,
-    optim="paged_adamw_8bit",            # pages optimizer states to CPU — saves ~0.5GB
-    gradient_checkpointing=True,         # trades compute for memory on T4
-    bf16=True,                           # bfloat16 compute (T4 supports bf16)
+    max_length=1024,
+    optim="adamw_torch",                 # no paging overhead needed on 40GB VRAM
+    gradient_checkpointing=False,        # A100 has room for full activations — no compute trade-off
+    bf16=True,                           # LLaMA 3.2 native dtype; A100 has native BF16 Tensor Cores at 312 TFLOPS
     fp16=False,
-    logging_steps=50,
+    logging_steps=10,
     eval_strategy="epoch",               # evaluate on val.csv after each epoch
     save_strategy="epoch",
-    save_total_limit=1,                  # keep only the best checkpoint
+    save_total_limit=2,                  # keep best + most recent checkpoint
     load_best_model_at_end=True,
     metric_for_best_model="eval_loss",
     greater_is_better=False,
     report_to="mlflow",
-    # trl 1.x: assistant_only_loss=True masks all non-assistant tokens (label=-100)
-    # so loss is only computed on the recipe response, not on the prompt
-    assistant_only_loss=True,
 )
 
 
@@ -129,7 +130,7 @@ def _load_model_and_tokenizer(model_id: str) -> tuple:
         device_map="cuda:0",     # force single GPU — "auto" splits across GPUs causing overhead
         torch_dtype=torch.bfloat16,
         trust_remote_code=True,
-        use_cache=False,         # must be False when gradient_checkpointing=True
+        use_cache=True,          # gradient_checkpointing=False — KV cache is safe to enable
     )
 
     model = prepare_model_for_kbit_training(model)
@@ -154,12 +155,12 @@ def _load_and_format_dataset(
     """
     Load train.csv and val.csv. Format each row as a 'messages' list of role/content dicts.
 
-    trl 1.x SFTTrainer with assistant_only_loss=True expects a 'messages' column where
-    each row is: [{"role": "system", ...}, {"role": "user", ...}, {"role": "assistant", ...}]
+    SFTTrainer expects a 'messages' column where each row is a list of role/content dicts:
+    [{"role": "system", ...}, {"role": "user", ...}, {"role": "assistant", ...}]
 
     SFTTrainer then:
       1. Applies the tokenizer's chat template to convert messages → token IDs
-      2. Identifies the assistant turn boundaries
+      2. DataCollatorForCompletionOnlyLM identifies the assistant turn boundaries
       3. Sets labels = -100 for all non-assistant tokens (system + user turns)
       4. Computes cross-entropy loss only on the recipe response tokens
     """
@@ -200,23 +201,55 @@ def _build_trainer(
     """
     Build the SFTTrainer.
 
-    assistant_only_loss=True is the trl 1.x way of doing loss masking for conversational
-    datasets. It replaces the older DataCollatorForCompletionOnlyLM approach.
-    It automatically handles the masking for any chat-template model (LLaMA, Mistral, etc.)
-    without needing to specify a response template string manually.
+    Loss masking: only the assistant response tokens contribute to the cross-entropy loss.
+    Implemented via a custom collator that sets labels=-100 for all tokens before the
+    LLaMA 3.2 assistant header. This is identical in effect to assistant_only_loss=True
+    but has no dependency on TRL's internal collator classes or chat template markers.
     """
     sft_config = SFTConfig(
         output_dir=output_dir,
-        max_seq_length=TRAIN_CONFIG["max_seq_length"],
-        **{k: v for k, v in TRAIN_CONFIG.items() if k != "max_seq_length"},
+        max_length=TRAIN_CONFIG["max_length"],
+        **{k: v for k, v in TRAIN_CONFIG.items() if k != "max_length"},
     )
+
+    # Token IDs for the LLaMA 3.2 assistant header — marks where the response starts.
+    _response_tmpl = tokenizer.encode(
+        "<|start_header_id|>assistant<|end_header_id|>\n\n",
+        add_special_tokens=False,
+    )
+
+    class _AssistantOnlyCollator:
+        """Mask all tokens before the assistant header so only the recipe response
+        contributes to the loss. Equivalent to DataCollatorForCompletionOnlyLM."""
+
+        def __call__(self, features):
+            pad_dict = {"input_ids": [f["input_ids"] for f in features]}
+            if "attention_mask" in features[0]:
+                pad_dict["attention_mask"] = [f["attention_mask"] for f in features]
+            batch = tokenizer.pad(pad_dict, padding=True, return_tensors="pt")
+            if "attention_mask" not in batch:
+                batch["attention_mask"] = (batch["input_ids"] != tokenizer.pad_token_id).long()
+            labels = batch["input_ids"].clone()
+            tmpl = _response_tmpl
+            for i in range(labels.shape[0]):
+                seq = labels[i].tolist()
+                for j in range(len(seq) - len(tmpl), -1, -1):
+                    if seq[j : j + len(tmpl)] == tmpl:
+                        labels[i, : j + len(tmpl)] = -100
+                        break
+                else:
+                    labels[i, :] = -100      # template not found — skip sample
+            labels[batch["attention_mask"] == 0] = -100   # mask padding
+            batch["labels"] = labels
+            return batch
 
     return SFTTrainer(
         model=model,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         args=sft_config,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
+        data_collator=_AssistantOnlyCollator(),
     )
 
 
@@ -230,11 +263,16 @@ def train(params: dict, hf_token: str | None = None, push_to_hub: bool = True) -
       1. HuggingFace login (for gated LLaMA model access)
       2. Load model + tokenizer in 4-bit with LoRA adapters attached
       3. Format train.csv + val.csv as messages-column datasets
-      4. Build SFTTrainer with assistant_only_loss=True
+      4. Build SFTTrainer with DataCollatorForCompletionOnlyLM (assistant-response-only loss)
       5. Train for 3 epochs, evaluate on val.csv after each epoch
       6. Save checkpoint locally + push LoRA adapter to HuggingFace Hub
     Returns the path to the saved model directory.
     """
+    # Hide GPU 1 before CUDA initializes — prevents Trainer from wrapping in DataParallel,
+    # which is incompatible with 4-bit bitsandbytes models (custom CUDA memory layout
+    # cannot be replicated across devices by DataParallel's standard .to(device) clone).
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
     if hf_token:
         login(token=hf_token)
         print("HuggingFace authentication: OK")
@@ -332,7 +370,7 @@ def main() -> None:
         print(f"  LoRA modules: {LORA_CONFIG['target_modules']}")
         print(f"  Epochs:       {TRAIN_CONFIG['num_train_epochs']}")
         print(f"  LR:           {TRAIN_CONFIG['learning_rate']}")
-        print(f"  Max seq len:  {TRAIN_CONFIG['max_seq_length']}")
+        print(f"  Max seq len:  {TRAIN_CONFIG['max_length']}")
         return
 
     # HF token: read from environment variable

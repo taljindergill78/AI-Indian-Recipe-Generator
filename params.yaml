@@ -29,6 +29,8 @@ data_path:
   llama3_1b_prompts: data/processed/llama3_1b_base_prompts.json
   phi3_mini_metrics: data/processed/phi3_mini_base_metrics.json
   phi3_mini_prompts: data/processed/phi3_mini_base_prompts.json
+  llama3_3b_finetuned_metrics: data/processed/llama3_3b_finetuned_metrics.json
+  llama3_3b_finetuned_prompts: data/processed/llama3_3b_finetuned_prompts.json
 
 split_sizes:
   test: 500

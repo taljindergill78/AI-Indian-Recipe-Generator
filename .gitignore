@@ -176,6 +176,15 @@ cython_debug/
 .pypirc
 /artifacts
 
+# Model weights — adapter is on HuggingFace Hub; optimizer/RNG state not useful
+*.safetensors
+optimizer.pt
+rng_state.pth
+scheduler.pt
+
+# Eval/train upload zips — scratch files, not source
+ai-indian-recipe-*.zip
+
 # Raw data — lives on HuggingFace Hub
 data/raw/*.csv
 data/raw/*.json
@@ -204,3 +213,9 @@ data/processed/*_rowcheckpoint.json
 
 # Personal learning docs — not for public repo
 docs/
+
+# MLflow experiment tracking — generated at runtime, not source
+mlruns/
+
+# RunPod workspace snapshot — local training artifacts, not source
+Workspace Runpod FineTuning/

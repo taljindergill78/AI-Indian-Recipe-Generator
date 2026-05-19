@@ -132,6 +132,7 @@ def generate_response(
     prompt: str,
     max_new_tokens: int,
     do_sample: bool,
+    generation_kwargs: dict = None,
 ) -> str:
     """
     Run one forward pass through the model and decode the generated tokens.
@@ -143,16 +144,21 @@ def generate_response(
     We decode only the NEW tokens (output_ids[:, input_len:]) to strip the input
     prompt from the decoded text. model.generate() returns the full sequence
     (input + output) by default.
+
+    generation_kwargs: optional extra args passed to model.generate() — use to pass
+    temperature, top_p, repetition_penalty for fine-tuned model evaluation.
     """
     device = next(model.parameters()).device
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
     input_len = inputs["input_ids"].shape[1]
 
+    extra = generation_kwargs or {}
     output_ids = model.generate(
         **inputs,
         max_new_tokens=max_new_tokens,
         do_sample=do_sample,
         pad_token_id=tokenizer.eos_token_id,
+        **extra,
     )
 
     new_tokens = output_ids[0, input_len:]
@@ -199,6 +205,7 @@ def run_row_loop(model, tokenizer, test_df: pd.DataFrame, config: dict) -> list[
                 model, tokenizer, prompt,
                 config["max_new_tokens"],
                 config["do_sample"],
+                config.get("generation_kwargs"),
             )
             result["generated_text"] = generated_text
 
