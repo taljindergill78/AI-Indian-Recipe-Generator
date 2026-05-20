@@ -1,7 +1,7 @@
 ---
 title: The Indian Kitchen
 emoji: 🍛
-colorFrom: orange
+colorFrom: red
 colorTo: yellow
 sdk: gradio
 sdk_version: "5.0"
