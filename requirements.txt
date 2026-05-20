@@ -1,0 +1,13 @@
+# HuggingFace Spaces requirements
+# HF Spaces installs from this file on every build.
+# bitsandbytes + peft + transformers are needed for the real model on ZeroGPU.
+# `spaces` is the ZeroGPU SDK — provides the @spaces.GPU decorator.
+
+gradio>=5.0
+transformers>=4.40.0
+peft>=0.10.0
+bitsandbytes>=0.43.0
+accelerate>=0.30.0
+torch>=2.2.0
+mlflow>=2.12.0
+spaces

@@ -1,3 +1,15 @@
+---
+title: The Indian Kitchen
+emoji: 🍛
+colorFrom: orange
+colorTo: yellow
+sdk: gradio
+sdk_version: "5.0"
+app_file: app.py
+pinned: false
+license: mit
+---
+
 # AI-Powered Indian Recipe Generator
 
 ## Project Overview
