@@ -82,17 +82,19 @@ All metrics computed on the 500-recipe held-out test set with 95% bootstrap conf
 | LLaMA 3.2-1B (baseline) | 0.0255 | 0.1711 | 0.8372 | 0.0143 |
 | LLaMA 3.2-3B (baseline) | 0.0308 | 0.1954 | 0.8455 | 0.0195 |
 
-### After Fine-Tuning
+### After Fine-Tuning (v2 — nucleus sampling, repetition_penalty=1.3, 500 rows)
 
 | Model | Ingredient F1 | ROUGE-L | BERTScore F1 | Corpus BLEU |
 |---|---|---|---|---|
-| **LLaMA 3.2-3B fine-tuned** (this model) | **0.1881 ↑6.1×** | ⏳ v2 pending | ⏳ v2 pending | ⏳ v2 pending |
+| **LLaMA 3.2-3B fine-tuned** (this model) | **0.0992 ↑3.2×** | 0.1835 | **0.8514 ↑** | **0.0262 ↑34%** |
 
-> **Ingredient F1 improved 6.1× at baseline**, confirming the model learned Indian ingredient
-> vocabulary. ROUGE-L and BERTScore from the first evaluation run (v1) were invalid due to a
-> greedy decoding repetition loop — the fine-tuned model's sharpened distributions caused
-> ingredient repetition before reaching the instructions section. v2 re-evaluation uses nucleus
-> sampling with `repetition_penalty=1.3` and is currently running.
+> **Ingredient F1 improved 3.2×** (0.0308 → 0.0992), confirming the model learned Indian ingredient
+> vocabulary. ROUGE-L is slightly lower than the baseline (0.1835 vs 0.1954) — this is expected
+> for a generative model: the fine-tuned model produces plausible but different recipes rather than
+> reproducing reference phrasing, so exact text overlap drops while semantic similarity (BERTScore)
+> improves. A v1 run with greedy decoding showed inflated Ingredient F1 (0.1881) due to a repetition
+> loop that repeated ingredients ~46× before hitting the token limit; v2 fixes this with nucleus
+> sampling (`do_sample=True`, `temperature=0.7`, `top_p=0.9`, `repetition_penalty=1.3`).
 
 ---
 
@@ -149,7 +151,7 @@ messages = [
 text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 inputs = tokenizer(text, return_tensors="pt").to(model.device)
 with torch.inference_mode():
-    out = model.generate(**inputs, max_new_tokens=768, do_sample=True, temperature=0.7, top_p=0.9)
+    out = model.generate(**inputs, max_new_tokens=768, do_sample=True, temperature=0.7, top_p=0.9, repetition_penalty=1.3)
 print(tokenizer.decode(out[0, inputs["input_ids"].shape[1]:], skip_special_tokens=True))
 ```
 
