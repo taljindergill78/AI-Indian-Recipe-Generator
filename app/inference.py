@@ -118,7 +118,7 @@ def _load_weights_now() -> bool:
             BASE_MODEL_ID,
             quantization_config=bnb_config,
             device_map="auto",
-            torch_dtype=torch.bfloat16,
+            dtype=torch.bfloat16,
         )
 
         print(f"[inference] Attaching LoRA adapter from {ADAPTER_ID}...")
@@ -235,7 +235,7 @@ def _run_on_gpu_impl(user_msg: str, tag_name: str = ""):
     """
     global _tokenizer, _model
 
-    # Lazy load on first ZeroGPU call (GPU is guaranteed available here)
+    # Lazy load on first ZeroGPU call (H200 GPU is guaranteed available here)
     if _model is None:
         _load_weights_now()
 
@@ -248,11 +248,17 @@ def _run_on_gpu_impl(user_msg: str, tag_name: str = ""):
         {"role": "user",   "content": user_msg},
     ]
 
-    input_ids = _tokenizer.apply_chat_template(
+    # apply_chat_template returns BatchEncoding in transformers 5.x, raw tensor in 4.x.
+    # Use tokenize=False to get the formatted string, then tokenize separately for
+    # consistent behaviour across both major versions.
+    prompt_str = _tokenizer.apply_chat_template(
         messages,
         add_generation_prompt=True,
-        return_tensors="pt",
-    ).to(_model.device)
+        tokenize=False,
+    )
+    inputs = _tokenizer(prompt_str, return_tensors="pt").to(_model.device)
+    input_ids     = inputs["input_ids"]
+    attention_mask = inputs["attention_mask"]
 
     streamer = TextIteratorStreamer(
         _tokenizer,
@@ -262,6 +268,7 @@ def _run_on_gpu_impl(user_msg: str, tag_name: str = ""):
 
     gen_kwargs = {
         "input_ids":          input_ids,
+        "attention_mask":     attention_mask,
         "max_new_tokens":     768,
         "do_sample":          True,
         "temperature":        0.7,
