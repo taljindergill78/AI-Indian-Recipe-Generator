@@ -1,0 +1,32 @@
+# HuggingFace Spaces — files NOT needed in the Docker runtime container
+# Syntax identical to .gitignore
+# See docs/concepts/git_and_huggingface.md for full explanation
+
+# Project documentation (markdown, images, planning docs)
+docs/
+
+# Offline scripts — training, evaluation, data download (run on Kaggle/RunPod, not HF)
+scripts/
+notebooks/
+
+# Training and evaluation outputs — not read by app.py at runtime
+data/
+models/
+evaluation/
+mlruns/
+
+# Test suite — not run on HF
+tests/
+
+# Config files for local tooling — HF uses requirements.txt, not these
+pyproject.toml
+uv.lock
+params.yaml
+
+# Loose files at root that serve no runtime purpose
+model_card_draft.md
+eval_finetuned.log
+ai-indian-recipe-eval-finetuned.zip
+
+# RunPod training workspace
+Workspace Runpod FineTuning/
