@@ -117,8 +117,7 @@ All metrics computed on the 500-recipe held-out test set with 95% bootstrap conf
 | Data | HuggingFace Datasets, Pandas |
 | Evaluation | NLTK (corpus_bleu), rouge-score, bert-score, rapidfuzz |
 | Experiment tracking | MLflow (training metrics) + HuggingFace Hub (model weights) |
-| Frontend | Gradio Blocks — to be deployed on HuggingFace Spaces |
-| API | FastAPI + Uvicorn |
+| Frontend | Gradio Blocks (deployed on HuggingFace Spaces with ZeroGPU — H200 per inference call) |
 | Package management | UV (pyproject.toml + uv.lock) |
 
 ---
@@ -172,8 +171,13 @@ print(tokenizer.decode(out[0, inputs["input_ids"].shape[1]:], skip_special_token
 
 ```
 AI-Indian-Recipe-Generator/
+├── app/
+│   ├── app.py                      ← Gradio Blocks UI (3 tabs: Generate, Compare, Cook Mode)
+│   ├── inference.py                ← model loading, streaming generation, ZeroGPU support
+│   ├── output_parser.py            ← parse structured recipe text → ingredients + steps
+│   └── styles.css                  ← custom CSS for the Indian Kitchen UI
 ├── data/
-│   ├── raw/                        ← downloaded datasets
+│   ├── raw/                        ← downloaded datasets (via scripts/download_data.py)
 │   └── processed/                  ← train.csv, val.csv, test.csv + eval outputs
 ├── models/
 │   ├── train_llama3.py             ← QLoRA fine-tuning script
@@ -185,7 +189,8 @@ AI-Indian-Recipe-Generator/
 │       ├── evaluate_finetuned.py   ← fine-tuned model evaluation (Phase 4)
 │       ├── parser.py               ← structured output parser
 │       └── metrics.py              ← ROUGE-L, BERTScore, BLEU, Ingredient F1
-├── pyproject.toml                  ← UV dependencies
+├── requirements.txt                ← HF Spaces installs this (not pyproject.toml)
+├── pyproject.toml                  ← UV dependencies (local dev)
 └── params.yaml                     ← paths and model config
 ```
 
@@ -193,6 +198,6 @@ AI-Indian-Recipe-Generator/
 
 ## Links
 
-- **HuggingFace Hub** (model adapter): [taljindergill78/indian-recipe-llama3.2-qlora](https://huggingface.co/taljindergill78/indian-recipe-llama3.2-qlora)
+- **Live Demo** (HuggingFace Spaces): [taljindergill78/indian-kitchen](https://huggingface.co/spaces/taljindergill78/indian-kitchen) — log into HuggingFace (free) to use
+- **Model Adapter** (HuggingFace Hub): [taljindergill78/indian-recipe-llama3.2-qlora](https://huggingface.co/taljindergill78/indian-recipe-llama3.2-qlora)
 - **GitHub**: [taljindergill78/AI-Indian-Recipe-Generator](https://github.com/taljindergill78/AI-Indian-Recipe-Generator)
-- **HuggingFace Spaces** (Gradio demo): coming in Phase 4
